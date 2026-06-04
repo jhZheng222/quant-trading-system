@@ -109,10 +109,14 @@ class StrategyManager:
         from . import ema_rsi_strategy
         from . import macd_strategy
         from . import bollinger_strategy
+        from . import livermore_strategy
+        from . import multi_strategy
         
         self.register_strategy(ema_rsi_strategy.EMARsiStrategy)
         self.register_strategy(macd_strategy.MACDStrategy)
         self.register_strategy(bollinger_strategy.BollingerStrategy)
+        self.register_strategy(livermore_strategy.LivermoreStrategy)
+        self.register_strategy(multi_strategy.MultiStrategy)
     
     def register_strategy(self, strategy_class: type):
         """注册策略"""
