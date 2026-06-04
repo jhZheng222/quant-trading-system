@@ -1,0 +1,30 @@
+{
+  "system": {
+    "name": "量化交易系统",
+    "version": "2.0.0",
+    "mode": "simulation"
+  },
+  "data": {
+    "symbols": ["DOGEUSDT", "PEPEUSDT"],
+    "intervals": ["1h"],
+    "source": "binance"
+  },
+  "strategy": {
+    "name": "optimized_DOGEUSDT_30d",
+    "stop_loss_pct": 0.05,
+    "take_profit_pct": 0.08,
+    "buy_threshold": 65,
+    "sell_threshold": 40,
+    "position_size": 0.2,
+    "leverage": 10
+  },
+  "risk": {
+    "max_drawdown_pct": 20,
+    "max_daily_loss_pct": 10,
+    "max_positions": 3
+  },
+  "notifications": {
+    "enabled": false,
+    "feishu_webhook": ""
+  }
+}
