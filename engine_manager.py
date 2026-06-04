@@ -23,16 +23,16 @@ from datetime import datetime
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from core.realtime.engine_v2 import init_engine, get_engine
+from core.realtime.engine_v3 import init_engine, get_engine
 
 # 配置
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'config', 'engine_config.json')
 PID_FILE = os.path.join(os.path.dirname(__file__), 'config', 'engine.pid')
 
 DEFAULT_CONFIG = {
-    'config_name': 'optimized_DOGEUSDT_30d',
+    'config_name': 'default',
     'mode': 'simulation',
-    'data_url': 'ws://localhost:8765'
+    'symbols': ['DOGEUSDT', 'PEPEUSDT']
 }
 
 
@@ -67,14 +67,14 @@ def start_engine(live: bool = False):
     print("=" * 60)
     print(f"\n模式: {'实盘' if config['mode'] == 'live' else '模拟'}")
     print(f"配置: {config['config_name']}")
-    print(f"数据源: {config['data_url']}")
+    print(f"交易对: {', '.join(config.get('symbols', ['DOGEUSDT', 'PEPEUSDT']))}")
     print("\n⏳ 正在启动...")
     
     # 初始化引擎
     engine = init_engine(
         config['config_name'],
         config['mode'],
-        config['data_url']
+        config.get('symbols', ['DOGEUSDT', 'PEPEUSDT'])
     )
     
     # 启动引擎
@@ -158,20 +158,21 @@ def show_status():
     print(f"\n📋 配置:")
     print(f"   模式: {'实盘' if config['mode'] == 'live' else '模拟'}")
     print(f"   策略: {config['config_name']}")
-    print(f"   数据源: {config['data_url']}")
+    print(f"   交易对: {', '.join(config.get('symbols', ['DOGEUSDT', 'PEPEUSDT']))}")
     
     # 显示策略参数
-    from core.config.strategy_config import StrategyConfig
-    config_manager = StrategyConfig()
-    params = config_manager.load_params(config['config_name'])
-    
-    if params:
-        print(f"\n⚙️  策略参数:")
-        print(f"   止损: {params['stop_loss_pct']*100:.0f}%")
-        print(f"   止盈: {params['take_profit_pct']*100:.0f}%")
-        print(f"   买入阈值: {params['buy_threshold']}")
-        print(f"   卖出阈值: {params['sell_threshold']}")
-        print(f"   仓位: {params['position_size']*100:.0f}%")
+    config_file = 'config/settings.json'
+    try:
+        with open(config_file) as f:
+            settings = json.load(f)
+            params = settings.get('strategy', {})
+            if params:
+                print(f"\n⚙️  策略参数:")
+                print(f"   止损: {params.get('stop_loss_pct', 0)*100:.0f}%")
+                print(f"   止盈: {params.get('take_profit_pct', 0)*100:.0f}%")
+                print(f"   仓位: {params.get('position_size', 0)*100:.0f}%")
+    except:
+        pass
     
     print("\n" + "=" * 60)
     print("\n管理命令:")
