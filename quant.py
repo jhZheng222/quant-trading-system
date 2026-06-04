@@ -205,19 +205,23 @@ def cmd_optimize():
     
     result = subprocess.run(
         [sys.executable, str(ROOT_DIR / 'cli.py'), 'optimize', 
-         '--symbol', 'DOGEUSDT', '--days', '30', '--save'],
+         '--symbol', 'DOGEUSDT', '--days', '30', '--save', '--top', '3'],
         capture_output=True, text=True
     )
     
     if result.returncode == 0:
         # 提取关键信息
         lines = result.stdout.split('\n')
+        in_report = False
         for line in lines:
-            if '收益' in line or '胜率' in line or '推荐参数' in line:
+            if '策略参数优化报告' in line:
+                in_report = True
+            if in_report and ('收益' in line or '胜率' in line or '回撤' in line or '推荐参数' in line or '止损' in line or '止盈' in line or '仓位' in line):
                 print(line)
     else:
         print("❌ 优化失败")
-        print(result.stderr)
+        if result.stderr:
+            print(result.stderr[:500])
     
     print("\n" + "=" * 50)
     print("\n💡 使用 'quant start' 启动系统应用新参数")
