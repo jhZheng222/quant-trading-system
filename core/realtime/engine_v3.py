@@ -55,7 +55,7 @@ class BinanceClient:
         for symbol in self.symbols:
             for interval in self.intervals:
                 streams.append(f"{symbol}@kline_{interval}")
-            streams.append(f"{symbol}@mini_ticker")
+            streams.append(f"{symbol}@trade")  # 使用 trade 流
         return streams
     
     async def connect(self):
@@ -86,8 +86,8 @@ class BinanceClient:
         
         if event == 'kline':
             self._handle_kline(data)
-        elif event == '24hrMiniTicker':
-            self._handle_ticker(data)
+        elif event == 'trade':  # 处理 trade 事件
+            self._handle_trade(data)
     
     def _handle_kline(self, data: Dict):
         k = data.get('k', {})
@@ -125,17 +125,20 @@ class BinanceClient:
         if self.on_kline:
             self.on_kline(symbol, interval, kline)
     
-    def _handle_ticker(self, data: Dict):
+    def _handle_trade(self, data: Dict):
+        """处理 trade 事件"""
         symbol = data.get('s', '').upper()
+        price = float(data.get('p', 0))
+        
         ticker = {
             'symbol': symbol,
-            'price': float(data.get('c', 0)),
-            'change_pct': float(data.get('P', 0)),
-            'timestamp': data.get('E')
+            'price': price,
+            'timestamp': data.get('T')
         }
         
         self.tickers[symbol] = ticker
         
+        # 回调
         if self.on_ticker:
             self.on_ticker(symbol, ticker)
     
