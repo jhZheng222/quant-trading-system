@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+logs/*.log
+*.log
+
+# Data (optional - uncomment if you don't want to track data)
+# data/*.db
+# data/*.json
+
+# Config (sensitive)
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Reports
+reports/*.md
+config/report_*.txt
+
+# Simulation history
+config/simulation_*.json

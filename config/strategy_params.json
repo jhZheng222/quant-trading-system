@@ -1,0 +1,14 @@
+{
+  "optimized_DOGEUSDT_30d": {
+    "params": {
+      "stop_loss_pct": 0.05,
+      "take_profit_pct": 0.08,
+      "buy_threshold": 65,
+      "sell_threshold": 40,
+      "position_size": 0.2
+    },
+    "description": "DOGEUSDT 30天优化结果 - 收益:7.29%",
+    "created_at": "2026-06-03T22:36:32.887430",
+    "updated_at": "2026-06-03T22:36:32.887433"
+  }
+}

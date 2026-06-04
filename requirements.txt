@@ -1,0 +1,39 @@
+# 量化交易系统依赖
+# 核心依赖
+ccxt>=4.0.0              # 统一交易所接口
+pandas>=2.0.0            # 数据处理
+numpy>=1.24.0            # 数值计算
+ta-lib>=0.4.28           # 技术指标（需要系统库）
+websockets>=12.0         # WebSocket客户端
+sqlalchemy>=2.0.0        # 数据库ORM
+aiosqlite>=0.19.0        # 异步SQLite
+
+# Web监控面板
+fastapi>=0.100.0         # Web框架
+uvicorn>=0.23.0          # ASGI服务器
+jinja2>=3.1.0            # 模板引擎
+
+# 数据采集
+aiohttp>=3.8.0           # 异步HTTP客户端
+beautifulsoup4>=4.12.0   # HTML解析
+tweepy>=4.14.0           # Twitter API
+
+# 任务调度
+apscheduler>=3.10.0      # 定时任务
+celery>=5.3.0            # 分布式任务队列（可选）
+
+# 监控报警
+prometheus-client>=0.17.0 # Prometheus指标
+requests>=2.31.0         # HTTP请求
+
+# 工具
+python-dotenv>=1.0.0     # 环境变量管理
+loguru>=0.7.0            # 日志管理
+pydantic>=2.0.0          # 数据验证
+pyyaml>=6.0              # YAML配置
+
+# 开发工具
+pytest>=7.4.0            # 测试框架
+black>=23.0.0            # 代码格式化
+flake8>=6.0.0            # 代码检查
+mypy>=1.5.0              # 类型检查

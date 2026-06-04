@@ -1,0 +1,17 @@
+{
+  "test_name": "利弗莫尔一周实盘测试",
+  "test_id": "livermore_weekly",
+  "initial_balance": 10.0,
+  "symbols": [
+    "DOGEUSDT",
+    "PEPEUSDT"
+  ],
+  "leverage": 10,
+  "start_date": "2026-06-01",
+  "end_date": "2026-06-08",
+  "interval_minutes": 60,
+  "daily_report_hour": 22,
+  "strategy": "livermore",
+  "adaptive": true,
+  "notes": "修改此文件后，下次cron执行时自动生效。无需重启。"
+}
