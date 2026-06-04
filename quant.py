@@ -227,6 +227,24 @@ def cmd_optimize():
     print("\n💡 使用 'quant start' 启动系统应用新参数")
 
 
+def cmd_strategies():
+    """列出可用策略"""
+    from core.strategies import list_strategies
+    
+    print("📋 可用策略")
+    print("=" * 50)
+    
+    strategies = list_strategies()
+    
+    for s in strategies:
+        print(f"\n📌 {s['name']}")
+        print(f"   描述: {s['description']}")
+        print(f"   版本: {s['version']}")
+    
+    print("\n" + "=" * 50)
+    print("\n💡 在 config/settings.json 中修改 strategy.name 切换策略")
+
+
 def cmd_report():
     """生成报告"""
     print("📋 生成交易报告")
@@ -299,6 +317,7 @@ def main():
     quant stop           # 停止系统
     quant status         # 查看状态
     quant optimize       # 优化策略
+    quant strategies     # 列出可用策略
     quant report         # 生成报告
         """)
         return
@@ -314,6 +333,8 @@ def main():
         cmd_status()
     elif cmd == 'optimize':
         cmd_optimize()
+    elif cmd == 'strategies':
+        cmd_strategies()
     elif cmd == 'report':
         cmd_report()
     else:

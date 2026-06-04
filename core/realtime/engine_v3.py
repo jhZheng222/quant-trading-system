@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from loguru import logger
 
-from core.config.strategy_config import StrategyConfig, SimulatedTrader
+from core.strategies import load_strategy, list_strategies, Signal
 
 try:
     import websockets
@@ -171,21 +171,22 @@ class RealtimeEngineV3:
     """
     实时交易引擎 v3 (简化版)
     
-    直接连接币安，不需要转发服务。
+    直接连接币安，支持策略插件。
     """
     
     def __init__(self, config_name: str = 'default', mode: str = 'simulation',
-                 symbols: List[str] = None):
+                 symbols: List[str] = None, strategy_name: str = None):
         self.config_name = config_name
         self.mode = mode
         self.symbols = symbols or ['DOGEUSDT', 'PEPEUSDT']
         
-        # 加载策略配置
+        # 加载配置
         config_file = 'config/settings.json'
         try:
             with open(config_file) as f:
                 config = json.load(f)
                 self.params = config.get('strategy', {})
+                strategy_name = strategy_name or config.get('strategy', {}).get('name', 'ema_rsi')
         except:
             self.params = {
                 'stop_loss_pct': 0.05,
@@ -194,6 +195,11 @@ class RealtimeEngineV3:
                 'sell_threshold': 40,
                 'position_size': 0.2
             }
+            strategy_name = strategy_name or 'ema_rsi'
+        
+        # 加载策略
+        self.strategy = load_strategy(strategy_name, self.params)
+        logger.info(f"📊 加载策略: {self.strategy.name} v{self.strategy.version}")
         
         # 币安客户端（内嵌）
         self.client = BinanceClient(self.symbols, ['1h'])
@@ -201,12 +207,20 @@ class RealtimeEngineV3:
         self.client.on_kline = self._on_kline
         
         # 模拟交易器
-        self.simulator = SimulatedTrader(config_name) if mode == 'simulation' else None
+        self.simulator = self._create_simulator()
         
         # 状态
         self.evaluation_count = 0
         
         logger.info(f"⚡ 引擎 v3 初始化: {mode}")
+    
+    def _create_simulator(self):
+        """创建模拟交易器"""
+        if self.mode != 'simulation':
+            return None
+        
+        from core.config.strategy_config import SimulatedTrader
+        return SimulatedTrader(self.config_name)
     
     def _on_ticker(self, symbol: str, ticker: Dict):
         """Ticker更新"""
@@ -224,69 +238,31 @@ class RealtimeEngineV3:
         self.evaluation_count += 1
         logger.info(f"⚡ K线收盘 {symbol} | #{self.evaluation_count}")
         
-        # 生成信号
+        # 使用策略生成信号
         klines = self.client.get_klines(symbol, interval)
-        signal = self._generate_signal(klines, kline['close'])
+        signal = self.strategy.generate_signal(symbol, klines, kline['close'])
         
-        if signal:
-            self._execute_signal(symbol, signal, kline['close'])
+        if signal and signal.action != 'hold':
+            self._execute_signal(symbol, signal)
     
-    def _generate_signal(self, klines: List, price: float) -> Optional[Dict]:
-        """生成信号"""
-        if len(klines) < 24:
-            return None
-        
-        closes = [k[4] for k in klines]
-        
-        # 简单EMA策略
-        ema_20 = sum(closes[-20:]) / 20
-        ema_50 = sum(closes[-50:]) / 50 if len(closes) >= 50 else ema_20
-        
-        # RSI
-        deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]
-        gains = [d if d > 0 else 0 for d in deltas[-14:]]
-        losses = [-d if d < 0 else 0 for d in deltas[-14:]]
-        avg_gain = sum(gains) / 14
-        avg_loss = sum(losses) / 14
-        rsi = 100 - (100 / (1 + avg_gain / avg_loss)) if avg_loss > 0 else 100
-        
-        # 计算得分
-        score = 50
-        if ema_20 > ema_50:
-            score += 10
-        else:
-            score -= 10
-        
-        if rsi < 30:
-            score += 15
-        elif rsi > 70:
-            score -= 15
-        
-        # 信号
-        if score >= self.params.get('buy_threshold', 65):
-            signal = 'buy'
-        elif score <= self.params.get('sell_threshold', 40):
-            signal = 'sell'
-        else:
-            signal = 'hold'
-        
-        return {'signal': signal, 'score': score, 'rsi': rsi}
-    
-    def _execute_signal(self, symbol: str, signal: Dict, price: float):
+    def _execute_signal(self, symbol: str, signal: Signal):
         """执行交易"""
         if not self.simulator:
             return
         
         has_position = any(p['symbol'] == symbol for p in self.simulator.positions)
         
-        if signal['signal'] == 'buy' and not has_position:
-            self.simulator.open_position(symbol, 'buy', price, reason=f"score={signal['score']}")
-            logger.info(f"📈 开仓 {symbol} @ {price}")
-        elif signal['signal'] == 'sell' and has_position:
+        if signal.action == 'buy' and not has_position:
+            self.simulator.open_position(
+                symbol, 'buy', signal.price,
+                reason=signal.reason
+            )
+            logger.info(f"📈 开仓 {symbol} @ {signal.price} ({signal.reason})")
+        elif signal.action == 'sell' and has_position:
             for i, pos in enumerate(self.simulator.positions):
                 if pos['symbol'] == symbol:
-                    self.simulator.close_position(i, price, '反向信号')
-                    logger.info(f"📉 平仓 {symbol} @ {price}")
+                    self.simulator.close_position(i, signal.price, '反向信号')
+                    logger.info(f"📉 平仓 {symbol} @ {signal.price} ({signal.reason})")
                     break
     
     def start(self):
@@ -329,7 +305,7 @@ def get_engine() -> Optional[RealtimeEngineV3]:
 
 
 def init_engine(config_name: str = 'default', mode: str = 'simulation',
-                symbols: List[str] = None) -> RealtimeEngineV3:
+                symbols: List[str] = None, strategy_name: str = None) -> RealtimeEngineV3:
     global _engine
-    _engine = RealtimeEngineV3(config_name, mode, symbols)
+    _engine = RealtimeEngineV3(config_name, mode, symbols, strategy_name)
     return _engine
