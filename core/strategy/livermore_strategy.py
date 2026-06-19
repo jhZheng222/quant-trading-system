@@ -17,7 +17,7 @@
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
-from . import Strategy, Signal
+from core.strategy.base_types import Strategy, Signal
 
 
 class LivermoreStage(Enum):

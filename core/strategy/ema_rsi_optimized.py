@@ -16,7 +16,7 @@ EMA + RSI 优化策略（乔布斯×孙宇晨版）
 
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
-from . import Strategy, Signal
+from core.strategy.base_types import Strategy, Signal
 
 
 class EMARsiOptimizedStrategy(Strategy):

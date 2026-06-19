@@ -14,7 +14,7 @@ EMA + RSI 策略
 """
 
 from typing import List, Optional, Dict, Any
-from . import Strategy, Signal
+from core.strategy.base_types import Strategy, Signal
 
 
 class EMARsiStrategy(Strategy):

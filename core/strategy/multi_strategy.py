@@ -1,3 +1,4 @@
+from .base_types import Strategy, Signal
 """
 多策略引擎
 ==========
