@@ -1,229 +1,197 @@
+#!/usr/bin/env python3
 """
-量化交易系统 - 主程序
-Binance获取数据 + Gate.io执行交易
+quant-trading-system — 量化交易系统
+====================================
+
+唯一入口。所有操作通过子命令执行。
+
+用法:
+    python main.py start              # 启动交易引擎
+    python main.py stop               # 停止交易引擎
+    python main.py status             # 查看系统状态
+    python main.py positions          # 查看持仓
+    python main.py history            # 查看交易历史
+    python main.py backtest           # 运行回测
+    python main.py simulate           # 模拟交易
+    python main.py cli                # 交互式 CLI（旧版）
 """
-import asyncio
-import signal
+
 import sys
-from datetime import datetime
+import os
+import argparse
+from pathlib import Path
+
+# 确保项目根目录在 sys.path 中
+BASE_DIR = Path(__file__).resolve().parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
 from loguru import logger
-
-from config.settings import (
-    gate_config, trading_config, strategy_config, 
-    monitor_config, log_config
-)
-from core.data.service import DataCollectionService
-from core.strategy.engine import StrategyEngine
-from core.exchange.executor import TradeExecutor
-from models.init_db import init_database
+from config.settings import log_config
 
 
-class TradingSystem:
-    """量化交易系统"""
+def setup_logging():
+    """配置日志"""
+    log_dir = Path(log_config.log_dir)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    logger.add(
+        log_dir / "trading_{time:YYYY-MM-DD}.log",
+        rotation=log_config.log_rotation,
+        retention=log_config.log_retention,
+        compression=log_config.log_compression,
+        level=log_config.log_level,
+    )
+
+
+def cmd_start(args):
+    """启动交易引擎"""
+    from core.engine.livermore_engine import LivermoreEngine
     
-    def __init__(self, sandbox: bool = True):
-        """初始化系统
-        
-        Args:
-            sandbox: 是否使用模拟盘
-        """
-        self.sandbox = sandbox
-        self.running = False
-        
-        # 配置日志
-        self._setup_logging()
-        
-        logger.info("=" * 50)
-        logger.info("量化交易系统初始化")
-        logger.info(f"模式: {'模拟盘' if sandbox else '实盘'}")
-        logger.info("数据源: Binance (公开API)")
-        logger.info("交易所: Gate.io")
-        logger.info("=" * 50)
-        
-        # 初始化数据库
-        try:
-            init_database()
-            logger.info("数据库初始化完成")
-        except Exception as e:
-            logger.error(f"数据库初始化失败: {e}")
-            raise
-        
-        # 初始化组件
-        self.data_service = DataCollectionService()
-        self.strategy = StrategyEngine(strategy_config.dict())
-        self.executor = TradeExecutor(sandbox=sandbox)
-        
-        # 交易对映射 (Binance -> Gate.io)
-        self.symbol_mapping = {
-            'DOGEUSDT': 'DOGE/USDT',
-            'PEPEUSDT': 'PEPE/USDT',
-        }
-        
-        logger.info("系统初始化完成")
+    sandbox = not args.live
+    if sandbox:
+        print("🟡 启动模拟盘交易...")
+    else:
+        print("🔴 启动实盘交易（请注意风险！）...")
     
-    def _setup_logging(self):
-        """配置日志"""
-        import os
-        os.makedirs(log_config.log_dir, exist_ok=True)
-        
-        logger.remove()
-        logger.add(sys.stderr, level=log_config.log_level)
-        logger.add(
-            f"{log_config.log_dir}/trading.log",
-            rotation=log_config.log_rotation,
-            retention=log_config.log_retention,
-            compression=log_config.log_compression,
-            level=log_config.log_level
-        )
+    engine = LivermoreEngine(sandbox=sandbox)
+    engine.start()
+
+
+def cmd_stop(args):
+    """停止交易引擎"""
+    print("停止功能待实现")
+    # from scripts.live.stop_trading import stop_engine
+    # stop_engine()
+
+
+def cmd_status(args):
+    """查看系统状态"""
+    print("📊 量化交易系统状态")
+    print("=" * 40)
     
-    def analyze_symbol(self, binance_symbol: str):
-        """分析单个交易对
-        
-        Args:
-            binance_symbol: Binance交易对格式，如 'DOGEUSDT'
-        """
-        try:
-            # 获取Gate.io交易对格式
-            gate_symbol = self.symbol_mapping.get(binance_symbol)
-            if not gate_symbol:
-                logger.warning(f"未知交易对: {binance_symbol}")
-                return
-            
-            # 从Binance获取K线数据
-            klines = self.data_service.get_latest_klines(binance_symbol, '1h')
-            
-            if not klines:
-                # 如果缓存没有，实时采集
-                klines = self.data_service.collector.collect_klines(binance_symbol, '1h', 100)
-            
-            if not klines:
-                logger.warning(f"无法获取K线数据: {binance_symbol}")
-                return
-            
-            # 策略分析
-            signal = self.strategy.analyze(
-                symbol=gate_symbol,
-                klines=klines
-            )
-            
-            logger.info(f"分析结果: {binance_symbol} -> {gate_symbol}")
-            logger.info(f"  信号={signal.signal_type} 置信度={signal.confidence:.2f}")
-            logger.info(f"  价格={signal.price} 原因={signal.reason}")
-            
-            # 执行信号
-            if signal.signal_type != 'hold':
-                self.executor.execute_signal(signal)
-            
-        except Exception as e:
-            logger.error(f"分析失败 {binance_symbol}: {e}")
+    # 检查 PID 文件
+    pid_files = list(Path("data").glob("*.pid"))
+    if pid_files:
+        for pf in pid_files:
+            pid = pf.read_text().strip()
+            print(f"  ✅ {pf.stem} 运行中 (PID: {pid})")
+    else:
+        print("  ⚪ 无运行中的交易引擎")
     
-    def run_cycle(self):
-        """运行一个交易周期"""
-        logger.info(f"开始交易周期: {datetime.now()}")
-        
-        # 1. 采集数据
-        logger.info("采集市场数据...")
-        self.data_service.collect_all_tickers()
-        self.data_service.collect_all_klines('1h', 100)
-        
-        # 2. 分析所有交易对
-        for binance_symbol in self.symbol_mapping.keys():
-            self.analyze_symbol(binance_symbol)
-        
-        # 3. 检查止损止盈
-        self.executor.check_stop_loss_take_profit()
-        
-        # 4. 更新持仓
-        self.executor.update_positions()
-        
-        # 5. 获取状态
-        status = self.executor.get_status()
-        cache_status = self.data_service.get_cache_status()
-        
-        logger.info(f"当前状态:")
-        logger.info(f"  持仓: {status['positions']}")
-        logger.info(f"  今日交易: {status['daily_trades']}")
-        logger.info(f"  今日盈亏: {status['daily_pnl']:.2f}U")
-        
-        for symbol, info in cache_status.items():
-            logger.info(f"  {symbol}: 更新时间={info['last_update']}")
-        
-        logger.info(f"交易周期结束: {datetime.now()}")
+    print(f"  根目录: {BASE_DIR}")
     
-    async def run(self, interval: int = 3600):
-        """运行系统
-        
-        Args:
-            interval: 交易间隔（秒），默认1小时
-        """
-        self.running = True
-        
-        logger.info(f"系统启动，交易间隔: {interval}秒")
-        
-        # 注册信号处理
-        def signal_handler(sig, frame):
-            logger.info("收到停止信号，正在关闭...")
-            self.running = False
-        
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
-        
-        # 主循环
-        while self.running:
-            try:
-                self.run_cycle()
-            except Exception as e:
-                logger.error(f"交易周期异常: {e}")
-            
-            # 等待下一个周期
-            logger.info(f"等待 {interval} 秒后进入下一个周期...")
-            await asyncio.sleep(interval)
-        
-        logger.info("系统已停止")
+    # 检查数据库
+    db_path = BASE_DIR / "data" / "trading.db"
+    if db_path.exists():
+        size = db_path.stat().st_size / 1024
+        print(f"  数据库: trading.db ({size:.0f} KB)")
     
-    def stop(self):
-        """停止系统"""
-        self.running = False
-        self.data_service.stop()
-        logger.info("系统停止中...")
+    # 显示配置文件状态
+    env_path = BASE_DIR / ".env"
+    print(f"  环境变量: {'✅ 已配置' if env_path.exists() else '❌ 未配置'}")
+    
+    print("=" * 40)
+
+
+def cmd_positions(args):
+    """查看持仓"""
+    from cli import main as cli_main
+    sys.argv = ["cli.py", "positions"]
+    if args.live:
+        sys.argv.append("--live")
+    cli_main()
+
+
+def cmd_history(args):
+    """查看交易历史"""
+    from cli import main as cli_main
+    sys.argv = ["cli.py", "history"]
+    cli_main()
+
+
+def cmd_backtest(args):
+    """运行回测"""
+    print("回测功能待整合")
+    # from scripts.backtest.run_backtest import run
+    # run(strategy=args.strategy, symbol=args.symbol)
+
+
+def cmd_simulate(args):
+    """运行模拟交易"""
+    print("模拟交易功能待整合")
+    # from scripts.simulate import run_simulation
+    # run_simulation()
 
 
 def main():
-    """主函数"""
-    import argparse
+    """主入口"""
+    setup_logging()
     
-    parser = argparse.ArgumentParser(description='量化交易系统')
-    parser.add_argument('--sandbox', action='store_true', default=True,
-                       help='使用模拟盘（默认）')
-    parser.add_argument('--live', action='store_true',
-                       help='使用实盘')
-    parser.add_argument('--interval', type=int, default=3600,
-                       help='交易间隔（秒），默认3600')
-    parser.add_argument('--once', action='store_true',
-                       help='只运行一次')
+    parser = argparse.ArgumentParser(
+        description="quant-trading-system — 量化交易系统",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例:
+  python main.py start              # 启动模拟盘交易
+  python main.py start --live       # 启动实盘交易
+  python main.py stop               # 停止交易
+  python main.py status             # 查看状态
+  python main.py positions          # 查看持仓
+  python main.py history            # 查看历史交易
+  python main.py backtest           # 运行回测
+  python main.py backtest --strategy livermore --symbol DOGEUSDT
+        """,
+    )
+    
+    sub = parser.add_subparsers(dest="command", help="子命令")
+    
+    # start
+    p_start = sub.add_parser("start", help="启动交易引擎")
+    p_start.add_argument("--live", action="store_true", help="实盘模式（默认模拟盘）")
+    p_start.set_defaults(func=cmd_start)
+    
+    # stop
+    p_stop = sub.add_parser("stop", help="停止交易引擎")
+    p_stop.set_defaults(func=cmd_stop)
+    
+    # status
+    p_status = sub.add_parser("status", help="查看系统状态")
+    p_status.set_defaults(func=cmd_status)
+    
+    # positions
+    p_pos = sub.add_parser("positions", help="查看持仓")
+    p_pos.add_argument("--live", action="store_true", help="实时盈亏")
+    p_pos.set_defaults(func=cmd_positions)
+    
+    # history
+    p_hist = sub.add_parser("history", help="查看交易历史")
+    p_hist.set_defaults(func=cmd_history)
+    
+    # backtest
+    p_bt = sub.add_parser("backtest", help="运行回测")
+    p_bt.add_argument("--strategy", default="livermore", help="策略名称")
+    p_bt.add_argument("--symbol", default="DOGEUSDT", help="交易对")
+    p_bt.set_defaults(func=cmd_backtest)
+    
+    # simulate
+    p_sim = sub.add_parser("simulate", help="运行模拟交易")
+    p_sim.set_defaults(func=cmd_simulate)
+    
+    # cli (旧版入口)
+    p_cli = sub.add_parser("cli", help="旧版交互式 CLI")
+    def run_cli(a):
+        with open("cli.py") as f:
+            exec(f.read())
+    p_cli.set_defaults(func=run_cli)
     
     args = parser.parse_args()
     
-    # 确定模式
-    sandbox = not args.live
+    if args.command is None:
+        parser.print_help()
+        return
     
-    try:
-        # 创建系统
-        system = TradingSystem(sandbox=sandbox)
-        
-        if args.once:
-            # 只运行一次
-            system.run_cycle()
-        else:
-            # 持续运行
-            asyncio.run(system.run(interval=args.interval))
-            
-    except KeyboardInterrupt:
-        logger.info("用户中断")
-    except Exception as e:
-        logger.error(f"系统异常: {e}")
-        raise
+    args.func(args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

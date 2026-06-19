@@ -127,15 +127,16 @@ class SimulatedTrader:
             # 使用默认参数
             self.params = {
                 'stop_loss_pct': 0.05,
-                'take_profit_pct': 0.08,
-                'buy_threshold': 65,
-                'sell_threshold': 40,
-                'position_size': 0.2
+                'take_profit_pct': 0.12,
+                'buy_threshold': 60,
+                'sell_threshold': 45,
+                'position_size': 0.2,
+                'leverage': 3
             }
             logger.warning("使用默认参数")
         
-        # 模拟状态
-        self.initial_balance = 10000.0
+        # 从配置读取初始余额，或使用默认值
+        self.initial_balance = self.params.get('initial_balance', 10.0)
         self.balance = self.initial_balance
         self.positions: List[Dict] = []
         self.trades: List[Dict] = []
@@ -148,15 +149,23 @@ class SimulatedTrader:
         self.consecutive_losses = 0
         self.max_consecutive_losses = 0
         
+        # 终止保护
+        self.max_loss_pct = self.params.get('max_loss_pct', 0.5)  # 最大亏损比例，默认50%
+        self.min_trade_amount = self.params.get('min_trade_amount', 1.0)  # 最小交易金额，默认1U
+        self.is_stopped = False
+        self.stop_reason = None
+        
         # 加载历史记录
         self._load_history()
         
         logger.info(f"📊 模拟交易器初始化: {config_name}")
-        logger.info(f"   止损: {self.params['stop_loss_pct']*100:.0f}%")
-        logger.info(f"   止盈: {self.params['take_profit_pct']*100:.0f}%")
-        logger.info(f"   买入阈值: {self.params['buy_threshold']}")
-        logger.info(f"   卖出阈值: {self.params['sell_threshold']}")
-        logger.info(f"   仓位: {self.params['position_size']*100:.0f}%")
+        logger.info(f"   止损: {self.params.get('stop_loss_pct', 0.05)*100:.0f}%")
+        logger.info(f"   止盈: {self.params.get('take_profit_pct', 0.12)*100:.0f}%")
+        logger.info(f"   买入阈值: {self.params.get('buy_threshold', 60)}")
+        logger.info(f"   卖出阈值: {self.params.get('sell_threshold', 45)}")
+        logger.info(f"   杠杆: {self.params.get('leverage', 3)}x")
+        logger.info(f"   最大亏损: {self.max_loss_pct*100:.0f}% (自动终止)")
+        logger.info(f"   最小交易额: {self.min_trade_amount}U")
     
     def _load_history(self):
         """加载交易历史"""
@@ -175,8 +184,12 @@ class SimulatedTrader:
                 self.peak_balance = data.get('peak_balance', self.initial_balance)
                 self.consecutive_losses = data.get('consecutive_losses', 0)
                 self.max_consecutive_losses = data.get('max_consecutive_losses', 0)
+                self.is_stopped = data.get('is_stopped', False)
+                self.stop_reason = data.get('stop_reason', None)
                 
                 logger.info(f"   加载历史: {len(self.trades)}笔交易")
+                if self.is_stopped:
+                    logger.warning(f"   ⚠️ 系统已终止: {self.stop_reason}")
             except Exception as e:
                 logger.warning(f"加载历史失败: {e}")
     
@@ -194,6 +207,8 @@ class SimulatedTrader:
             'peak_balance': self.peak_balance,
             'consecutive_losses': self.consecutive_losses,
             'max_consecutive_losses': self.max_consecutive_losses,
+            'is_stopped': self.is_stopped,
+            'stop_reason': self.stop_reason,
             'updated_at': datetime.now().isoformat()
         }
         
@@ -202,7 +217,8 @@ class SimulatedTrader:
             json.dump(data, f, indent=2, ensure_ascii=False)
     
     def open_position(self, symbol: str, side: str, price: float, 
-                      amount: float = None, reason: str = 'signal') -> Dict:
+                      amount: float = None, size_pct: float = None,
+                      reason: str = 'signal') -> Dict:
         """开仓
         
         Args:
@@ -210,24 +226,46 @@ class SimulatedTrader:
             side: 方向 (buy/sell)
             price: 开仓价格
             amount: 数量（如果为None则自动计算）
+            size_pct: 仓位百分比（如0.2表示20%）
             reason: 开仓原因
             
         Returns:
             交易记录
         """
+        # 检查终止条件
+        if self._check_termination_conditions():
+            logger.warning(f"⚠️ 系统已终止，无法开仓: {self.stop_reason}")
+            return {}
+        
         # 计算仓位
         if amount is None:
-            available = self.balance * self.params['position_size']
-            leverage = 10  # 默认10倍杠杆
+            pct = size_pct if size_pct else self.params.get('position_size', 0.2)
+            available = self.balance * pct
+            leverage = self.params.get('leverage', 3)
             amount = available * leverage / price
+            
+            # 扣除保证金
+            margin = available
+            self.balance -= margin
+        else:
+            # 如果提供了 amount，需要计算并扣除保证金
+            leverage = self.params.get('leverage', 3)
+            margin = (amount * price) / leverage
+            
+            # 检查是否有足够余额
+            if margin > self.balance:
+                logger.warning(f"⚠️ 余额不足: 需要 {margin:.2f}U，可用 {self.balance:.2f}U")
+                return {}
+            
+            self.balance -= margin
         
         # 计算止损止盈
         if side == 'buy':
-            stop_loss = price * (1 - self.params['stop_loss_pct'])
-            take_profit = price * (1 + self.params['take_profit_pct'])
+            stop_loss = price * (1 - self.params.get('stop_loss_pct', 0.05))
+            take_profit = price * (1 + self.params.get('take_profit_pct', 0.12))
         else:
-            stop_loss = price * (1 + self.params['stop_loss_pct'])
-            take_profit = price * (1 - self.params['take_profit_pct'])
+            stop_loss = price * (1 + self.params.get('stop_loss_pct', 0.05))
+            take_profit = price * (1 - self.params.get('take_profit_pct', 0.12))
         
         # 创建持仓
         position = {
@@ -235,17 +273,40 @@ class SimulatedTrader:
             'side': side,
             'entry_price': price,
             'amount': amount,
+            'margin': margin if amount is None else (amount * price / self.params.get('leverage', 3)),
             'stop_loss': stop_loss,
             'take_profit': take_profit,
             'entry_time': datetime.now().isoformat(),
-            'reason': reason
+            'reason': reason,
+            'added': False
         }
         
         self.positions.append(position)
         
-        logger.info(f"📈 开仓 {symbol}: {side} @ {price:.6f}, 数量={amount:.2f}")
+        # 保存历史
+        self._save_history()
+        
+        logger.info(f"📈 开仓 {symbol}: {side} @ {price:.6f}, 数量={amount:.2f}, 余额={self.balance:.2f}U")
         
         return position
+    
+    def add_position(self, index: int, price: float, add_pct: float = 0.1):
+        """浮盈加仓
+        
+        Args:
+            index: 持仓索引
+            price: 当前价格
+            add_pct: 加仓百分比
+        """
+        if index >= len(self.positions):
+            return
+        
+        pos = self.positions[index]
+        add_amount = self.balance * add_pct * self.params.get('leverage', 3) / price
+        pos['amount'] += add_amount
+        pos['added'] = True
+        
+        logger.info(f"📈 加仓 {pos['symbol']}: +{add_amount:.2f} @ {price:.6f}")
     
     def close_position(self, index: int, price: float, reason: str = 'manual') -> Dict:
         """平仓
@@ -265,6 +326,7 @@ class SimulatedTrader:
         position = self.positions[index]
         entry_price = position['entry_price']
         amount = position['amount']
+        margin = position.get('margin', 0)
         
         # 计算盈亏
         if position['side'] == 'buy':
@@ -274,8 +336,8 @@ class SimulatedTrader:
         
         pnl_pct = (pnl / (entry_price * amount)) * 100
         
-        # 更新余额
-        self.balance += pnl
+        # 更新余额（返还保证金 + 盈亏）
+        self.balance += margin + pnl
         
         # 更新回撤
         if self.balance > self.peak_balance:
@@ -303,6 +365,7 @@ class SimulatedTrader:
             'entry_price': entry_price,
             'exit_price': price,
             'amount': amount,
+            'margin': margin,
             'pnl': pnl,
             'pnl_pct': pnl_pct,
             'entry_time': position['entry_time'],
@@ -334,6 +397,12 @@ class SimulatedTrader:
         Returns:
             平仓交易列表
         """
+        # 先检查终止条件
+        if self._check_termination_conditions():
+            # 如果触发终止，平掉所有持仓
+            closed_trades = self._close_all_positions(current_price, '系统终止')
+            return closed_trades
+        
         closed_trades = []
         
         for i in range(len(self.positions) - 1, -1, -1):
@@ -364,6 +433,57 @@ class SimulatedTrader:
                 trade = self.close_position(i, current_price, reason)
                 if trade:
                     closed_trades.append(trade)
+        
+        return closed_trades
+    
+    def _check_termination_conditions(self) -> bool:
+        """检查是否需要终止交易
+        
+        终止条件:
+        1. 亏损超过初始资金的 50%
+        2. 余额不足以进行最小交易
+        
+        Returns:
+            True 如果需要终止
+        """
+        if self.is_stopped:
+            return True
+        
+        # 检查亏损比例
+        loss_pct = (self.initial_balance - self.balance) / self.initial_balance
+        if loss_pct >= self.max_loss_pct:
+            self.is_stopped = True
+            self.stop_reason = f'亏损达到 {loss_pct*100:.1f}%，超过限制 {self.max_loss_pct*100:.0f}%'
+            logger.error(f"🛑 系统终止: {self.stop_reason}")
+            self._save_history()
+            return True
+        
+        # 检查余额是否满足最小交易金额
+        if self.balance < self.min_trade_amount:
+            self.is_stopped = True
+            self.stop_reason = f'余额 {self.balance:.2f}U 不满足最小交易额 {self.min_trade_amount}U'
+            logger.error(f"🛑 系统终止: {self.stop_reason}")
+            self._save_history()
+            return True
+        
+        return False
+    
+    def _close_all_positions(self, current_price: float, reason: str) -> List[Dict]:
+        """平掉所有持仓
+        
+        Args:
+            current_price: 当前价格
+            reason: 平仓原因
+            
+        Returns:
+            平仓交易列表
+        """
+        closed_trades = []
+        
+        for i in range(len(self.positions) - 1, -1, -1):
+            trade = self.close_position(i, current_price, reason)
+            if trade:
+                closed_trades.append(trade)
         
         return closed_trades
     
@@ -407,7 +527,11 @@ class SimulatedTrader:
             'max_drawdown_pct': self.max_drawdown_pct,
             'consecutive_losses': self.consecutive_losses,
             'max_consecutive_losses': self.max_consecutive_losses,
-            'params': self.params
+            'params': self.params,
+            'is_stopped': self.is_stopped,
+            'stop_reason': self.stop_reason,
+            'max_loss_pct': self.max_loss_pct,
+            'min_trade_amount': self.min_trade_amount
         }
     
     def format_status(self) -> str:
@@ -440,6 +564,13 @@ class SimulatedTrader:
 📋 当前持仓: {status['open_positions']}笔
 """
         
+        # 显示终止状态
+        if status['is_stopped']:
+            report += f"""
+🛑 系统已终止:
+   原因: {status['stop_reason']}
+"""
+        
         # 显示持仓详情
         if self.positions:
             report += "\n   持仓明细:\n"
@@ -449,11 +580,11 @@ class SimulatedTrader:
         
         report += f"""
 ⚙️  策略参数:
-   止损: {status['params']['stop_loss_pct']*100:.0f}%
-   止盈: {status['params']['take_profit_pct']*100:.0f}%
-   买入阈值: {status['params']['buy_threshold']}
-   卖出阈值: {status['params']['sell_threshold']}
-   仓位: {status['params']['position_size']*100:.0f}%
+   止损: {status['params'].get('stop_loss_pct', 0.05)*100:.0f}%
+   止盈: {status['params'].get('take_profit_pct', 0.12)*100:.0f}%
+   买入阈值: {status['params'].get('buy_threshold', 60)}
+   卖出阈值: {status['params'].get('sell_threshold', 45)}
+   仓位范围: {status['params'].get('position_size_min', 0.15)*100:.0f}%-{status['params'].get('position_size_max', 0.4)*100:.0f}%
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
         return report

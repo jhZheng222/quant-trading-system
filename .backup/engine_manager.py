@@ -1,4 +1,3 @@
-import warningsnwarnings.warn("engine_manager.py 已弃用，请使用 main.py start|stop|status", DeprecationWarning, stacklevel=2)n
 #!/usr/bin/env python3
 """
 实时引擎管理脚本

@@ -238,9 +238,17 @@ class RealtimeEngineV3:
         self.evaluation_count += 1
         logger.info(f"⚡ K线收盘 {symbol} | #{self.evaluation_count}")
         
+        # 获取持仓信息（用于优化版策略）
+        position = None
+        if self.simulator:
+            for pos in self.simulator.positions:
+                if pos['symbol'] == symbol:
+                    position = pos
+                    break
+        
         # 使用策略生成信号
         klines = self.client.get_klines(symbol, interval)
-        signal = self.strategy.generate_signal(symbol, klines, kline['close'])
+        signal = self.strategy.generate_signal(symbol, klines, kline['close'], position)
         
         if signal and signal.action != 'hold':
             self._execute_signal(symbol, signal)
@@ -253,15 +261,25 @@ class RealtimeEngineV3:
         has_position = any(p['symbol'] == symbol for p in self.simulator.positions)
         
         if signal.action == 'buy' and not has_position:
+            # 动态仓位
+            position_size = signal.metadata.get('position_size', 0.2) if signal.metadata else 0.2
             self.simulator.open_position(
                 symbol, 'buy', signal.price,
+                size_pct=position_size,
                 reason=signal.reason
             )
-            logger.info(f"📈 开仓 {symbol} @ {signal.price} ({signal.reason})")
+            logger.info(f"📈 开仓 {symbol} @ {signal.price} 仓位={position_size:.0%} ({signal.reason})")
+        elif signal.action == 'add_position' and has_position:
+            # 浮盈加仓
+            for i, pos in enumerate(self.simulator.positions):
+                if pos['symbol'] == symbol and not pos.get('added', False):
+                    self.simulator.add_position(i, signal.price, 0.1)
+                    logger.info(f"📈 加仓 {symbol} @ {signal.price} (+10%)")
+                    break
         elif signal.action == 'sell' and has_position:
             for i, pos in enumerate(self.simulator.positions):
                 if pos['symbol'] == symbol:
-                    self.simulator.close_position(i, signal.price, '反向信号')
+                    self.simulator.close_position(i, signal.price, signal.reason)
                     logger.info(f"📉 平仓 {symbol} @ {signal.price} ({signal.reason})")
                     break
     

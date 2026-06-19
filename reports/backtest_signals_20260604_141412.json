@@ -1,0 +1,74 @@
+[
+  {
+    "strategy": "ema_rsi",
+    "symbol": "DOGEUSDT",
+    "initial": 10.0,
+    "final": 756.2178,
+    "pnl": 746.2178,
+    "return_pct": 7462.18,
+    "trades": 123,
+    "win_rate": 85.4,
+    "buy_signals": 123,
+    "sell_signals": 305
+  },
+  {
+    "strategy": "ema_rsi_optimized",
+    "symbol": "DOGEUSDT",
+    "initial": 10.0,
+    "final": 5.2862,
+    "pnl": -4.7138,
+    "return_pct": -47.14,
+    "trades": 34,
+    "win_rate": 61.8,
+    "buy_signals": 34,
+    "sell_signals": 34
+  },
+  {
+    "strategy": "multi",
+    "symbol": "DOGEUSDT",
+    "initial": 10.0,
+    "final": 10.0,
+    "pnl": 0,
+    "return_pct": 0.0,
+    "trades": 0,
+    "win_rate": 0.0,
+    "buy_signals": 0,
+    "sell_signals": 0
+  },
+  {
+    "strategy": "ema_rsi",
+    "symbol": "PEPEUSDT",
+    "initial": 10.0,
+    "final": 979.0948,
+    "pnl": 969.0948,
+    "return_pct": 9690.95,
+    "trades": 135,
+    "win_rate": 86.7,
+    "buy_signals": 135,
+    "sell_signals": 305
+  },
+  {
+    "strategy": "ema_rsi_optimized",
+    "symbol": "PEPEUSDT",
+    "initial": 10.0,
+    "final": 10.0549,
+    "pnl": 0.0549,
+    "return_pct": 0.55,
+    "trades": 34,
+    "win_rate": 61.8,
+    "buy_signals": 34,
+    "sell_signals": 34
+  },
+  {
+    "strategy": "multi",
+    "symbol": "PEPEUSDT",
+    "initial": 10.0,
+    "final": 10.0,
+    "pnl": 0,
+    "return_pct": 0.0,
+    "trades": 0,
+    "win_rate": 0.0,
+    "buy_signals": 0,
+    "sell_signals": 1
+  }
+]

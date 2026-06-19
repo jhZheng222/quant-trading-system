@@ -10,5 +10,89 @@
     "description": "DOGEUSDT 30天优化结果 - 收益:50.70%",
     "created_at": "2026-06-04T09:30:30.474245",
     "updated_at": "2026-06-04T09:30:30.474248"
+  },
+  "live_test": {
+    "params": {
+      "name": "ema_rsi_optimized",
+      "stop_loss_pct": 0.05,
+      "take_profit_pct": 0.12,
+      "buy_threshold": 60,
+      "sell_threshold": 45,
+      "position_size_min": 0.15,
+      "position_size_max": 0.4,
+      "leverage": 3,
+      "add_position_threshold": 0.05,
+      "add_position_size": 0.1,
+      "cooldown_hours": 12,
+      "max_loss_pct": 0.5,
+      "min_trade_amount": 1.0
+    },
+    "description": "实盘模拟测试 - 2026-06-05 11:05",
+    "created_at": "2026-06-05T11:05:38.286454",
+    "updated_at": "2026-06-05T11:05:38.286457"
+  },
+  "live_dogeusdt": {
+    "params": {
+      "name": "ema_rsi_optimized",
+      "stop_loss_pct": 0.08,
+      "take_profit_pct": 0.20,
+      "buy_threshold": 55,
+      "sell_threshold": 50,
+      "position_size_min": 0.15,
+      "position_size_max": 0.4,
+      "leverage": 3,
+      "add_position_threshold": 0.05,
+      "add_position_size": 0.1,
+      "cooldown_hours": 12,
+      "max_loss_pct": 0.5,
+      "min_trade_amount": 1.0
+    },
+    "description": "实盘模拟 DOGEUSDT (优化版) - 收益204%",
+    "created_at": "2026-06-05T11:41:39.600478",
+    "updated_at": "2026-06-05T11:43:30.000000"
+  },
+  "live_pepeusdt": {
+    "params": {
+      "name": "ema_rsi_optimized",
+      "stop_loss_pct": 0.08,
+      "take_profit_pct": 0.05,
+      "buy_threshold": 65,
+      "sell_threshold": 40,
+      "position_size_min": 0.15,
+      "position_size_max": 0.4,
+      "leverage": 3,
+      "add_position_threshold": 0.05,
+      "add_position_size": 0.1,
+      "cooldown_hours": 12,
+      "max_loss_pct": 0.5,
+      "min_trade_amount": 1.0
+    },
+    "description": "实盘模拟 PEPEUSDT (优化版) - 收益1634%",
+    "created_at": "2026-06-05T11:41:40.440170",
+    "updated_at": "2026-06-05T11:43:30.000000"
+  },
+  "optimized_dogeusdt_30d": {
+    "params": {
+      "stop_loss_pct": 0.08,
+      "take_profit_pct": 0.2,
+      "buy_threshold": 55,
+      "sell_threshold": 50,
+      "position_size": 0.4
+    },
+    "description": "DOGEUSDT 30天优化结果 - 收益:204.13%",
+    "created_at": "2026-06-05T11:38:56.812097",
+    "updated_at": "2026-06-05T11:38:56.812108"
+  },
+  "optimized_pepeusdt_30d": {
+    "params": {
+      "stop_loss_pct": 0.08,
+      "take_profit_pct": 0.05,
+      "buy_threshold": 65,
+      "sell_threshold": 40,
+      "position_size": 0.4
+    },
+    "description": "PEPEUSDT 30天优化结果 - 收益:1634.53%",
+    "created_at": "2026-06-05T11:38:56.812109",
+    "updated_at": "2026-06-05T11:38:56.812110"
   }
 }
