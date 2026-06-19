@@ -1,0 +1,18 @@
+name: q-trader
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+    - python-binance
+    - pandas
+    - numpy
+    - python-dotenv
+    - ta
+    - loguru
+    -
+
+
+    o6mMHx2KSkVXR3AReGMBugdQefpCUQM9TY4i76Js0a2GDpuVfODgnvBR4qfxX5fC
+    LPjc71W8pd3nqmSPdK80VWmCQXF4t7czjXuuQRUlmmEoNaDCejto8f2rOymkNov4
